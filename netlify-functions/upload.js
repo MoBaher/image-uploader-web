@@ -1,7 +1,7 @@
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const { parse } = require('querystring');
+const { buffer } = require('micro');
+const { Readable } = require('stream');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -9,28 +9,38 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'wedding_photos',
-        allowed_formats: ['jpg', 'jpeg', 'png'],
-    },
-});
+const storage = multer.memoryStorage();
+const upload = multer({ storage }).array('files');
 
-const upload = multer({ storage: storage }).array('files');
-
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
         try {
-            await new Promise((resolve, reject) => {
-                upload(event, context, (err) => {
-                    if (err) reject(err);
-                    resolve();
+            const bodyBuffer = await buffer(event);
+            const files = JSON.parse(bodyBuffer.toString());
+
+            const uploadPromises = files.map(file => {
+                const stream = Readable.from(Buffer.from(file.content, 'base64'));
+                return new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { folder: 'wedding_photos' },
+                        (error, result) => {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve(result);
+                            }
+                        }
+                    );
+                    stream.pipe(uploadStream);
                 });
             });
+
+            const results = await Promise.all(uploadPromises);
+            const urls = results.map(result => result.secure_url);
+
             return {
                 statusCode: 200,
-                body: JSON.stringify({ message: 'Files uploaded successfully!' }),
+                body: JSON.stringify({ message: 'Files uploaded successfully!', urls }),
             };
         } catch (error) {
             return {
