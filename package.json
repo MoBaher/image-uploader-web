@@ -1,12 +1,14 @@
 {
-    "name": "image-uploader-web",
+    "name": "image-uploader",
     "version": "1.0.0",
+    "main": "index.js",
     "scripts": {
       "start": "netlify dev"
     },
     "dependencies": {
-      "multer": "^2.0.0-rc.4",
-      "cloudinary": "^1.30.0"
-    }
+      "cloudinary": "^1.28.1",
+      "multer": "^2.0.0-rc.4"
+        }
   }
   
+
