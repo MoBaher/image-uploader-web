@@ -2,21 +2,29 @@ document.getElementById('uploadForm').addEventListener('submit', async (event) =
     event.preventDefault();
 
     const files = document.getElementById('fileInput').files;
-    const formData = new FormData();
-
-    for (const file of files) {
-        formData.append('files', file);
-    }
+    const fileArray = Array.from(files).map(file => ({
+        name: file.name,
+        content: await fileToBase64(file),
+    }));
 
     const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({ files: fileArray }),
     });
 
     const result = await response.json();
     document.getElementById('message').textContent = result.message || 'Upload successful!';
     fetchImages();
 });
+
+async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+    });
+}
 
 async function fetchImages() {
     const response = await fetch('/api/images');
